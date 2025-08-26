@@ -140,6 +140,9 @@ function SilentAimModule:Start()
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         if self == Shoot and getnamecallmethod() == "FireServer" then
             local args = {...}
+            for i, v in ipairs(args) do
+                print("Arg["..i.."] =", v, typeof(v))
+            end
             print("FireServer called with args:", args)
             print("Original args[2]:", args[2] and args[2].Name or "nil")
             print("Original args[4]:", args[4])
@@ -189,5 +192,4 @@ function SilentAimModule:Stop()
 end
 
 return SilentAimModule
-
 

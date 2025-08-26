@@ -16,7 +16,7 @@ local SilentAimEnabled = true
 local StickyTarget = true
 local IgnoreBotHighlight = true
 local FovRadius = 1000
-local SelectedBone = "HumanoidRootPart" -- Замените на подходящее имя после проверки
+local SelectedBone = "HumanoidRootPart"
 local WallCheck = false
 local ForceFieldCheck = false
 local CurrentTarget = nil
@@ -61,6 +61,14 @@ local function buildShootArgs(tool, targetCharacter, targetPos, selectedBone, is
     local cameraPos = Camera.CFrame.Position
     local cf = CFrame.new(cameraPos, targetPos)
     local dist = math.floor((cameraPos - targetPos).Magnitude)
+    local time
+    if workspace:GetServerTimeNow() then
+        time = workspace:GetServerTimeNow()
+        print("Using workspace:GetServerTimeNow():", time)
+    else
+        warn("workspace:GetServerTimeNow() not available, using os.clock()")
+        time = os.clock()
+    end
     local hitData = {
         ["1"] = {
             humanoid,
@@ -69,7 +77,7 @@ local function buildShootArgs(tool, targetCharacter, targetPos, selectedBone, is
             dist
         }
     }
-    local args = { workspace:GetServerTimeNow(), tool, cf, true, hitData }
+    local args = { time, tool, cf, true, hitData }
     print("buildShootArgs created args:", args)
     return args
 end
@@ -193,18 +201,6 @@ function SilentAimModule:Stop()
         print("[SilentAimModule] Unhooked")
     end
     CurrentTarget = nil
-end
-
-function SilentAimModule:SetConfig(config)
-    SilentAimEnabled = config.SilentAimEnabled ~= nil and config.SilentAimEnabled or SilentAimEnabled
-    StickyTarget = config.StickyTarget ~= nil and config.StickyTarget or StickyTarget
-    IgnoreBotHighlight = config.IgnoreBotHighlight ~= nil and config.IgnoreBotHighlight or IgnoreBotHighlight
-    FovRadius = config.FovRadius or FovRadius
-    SelectedBone = config.SelectedBone or SelectedBone
-    WallCheck = config.WallCheck ~= nil and config.WallCheck or WallCheck
-    ForceFieldCheck = config.ForceFieldCheck ~= nil and config.ForceFieldCheck or ForceFieldCheck
-    print("Config updated:", config)
-    print("Current settings: SilentAimEnabled=", SilentAimEnabled, "FovRadius=", FovRadius, "SelectedBone=", SelectedBone)
 end
 
 return SilentAimModule

@@ -174,7 +174,12 @@ function SilentAimModule:Start()
                     end
                 end
             end
-            return oldNamecall(self, unpack(args))
+            local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
+if newArgs then
+    return oldNamecall(self, unpack(newArgs))
+else
+    return oldNamecall(self, unpack(args))
+end
         end
         return oldNamecall(self, ...)
     end)
@@ -202,6 +207,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

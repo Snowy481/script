@@ -62,7 +62,7 @@ local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, 
             humanoid,
             true,
             true,
-            dist
+            50
         }
     }
 
@@ -213,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

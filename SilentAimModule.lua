@@ -76,10 +76,7 @@ local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, 
     newArgs[6] = hitData                  -- table   (hitData)
 
     -- быстрый чек типов, по порядку 1..6
-    for i = 1, 6 do
-        local v = newArgs[i]
-        print(("NewArg[%d] = %s (%s)"):format(i, tostring(v), typeof(v)))
-    end
+
 
     return newArgs
 end
@@ -216,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

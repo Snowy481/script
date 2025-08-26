@@ -1,3 +1,4 @@
+-- silent_aim_module.luau
 local SilentAimModule = {}
 
 -- Services
@@ -6,16 +7,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Shoot = ReplicatedStorage.Events.Shoot or game:GetService("ReplicatedStorage").Events.Shoot
+local Events = ReplicatedStorage:WaitForChild("Events")
+local Shoot = Events:WaitForChild("Shoot") -- Ensure Shoot is loaded
 
 -- Silent Aim Variables
 local SilentAimEnabled = false
 local StickyTarget = false
-local IgnoreBotHighlight = false -- Replaces HighlightCheck; true means ignore RedHighlight
+local IgnoreBotHighlight = false -- true means ignore RedHighlight
 local FovRadius = 15 -- Matches UI default
 local SelectedBone = "Head" -- Synced with aimbot
-local WallCheck = true -- From aimbot, can be made configurable
-local ForceFieldCheck = true -- From aimbot, can be made configurable
+local WallCheck = true -- Synced with aimbot
+local ForceFieldCheck = true -- From aimbot
 local CurrentTarget = nil -- For StickyTarget
 
 -- Function to check if visible (wall check)
@@ -76,6 +78,10 @@ end
 local oldFireServer
 function SilentAimModule:Start()
     if oldFireServer then return end
+    if not Shoot:IsA("RemoteEvent") then
+        warn("Shoot is not a RemoteEvent, cannot hook FireServer")
+        return
+    end
     oldFireServer = Shoot.FireServer
     Shoot.FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
         if SilentAimEnabled then

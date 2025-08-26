@@ -61,7 +61,7 @@ local function buildShootArgs(originalArgs, tool, targetCharacter, targetPos, se
     local hitData = {
         ["1"] = {
             humanoid,
-            selectedBone == "Head",
+            true
             true,
             dist
         }
@@ -189,4 +189,5 @@ function SilentAimModule:Stop()
 end
 
 return SilentAimModule
+
 

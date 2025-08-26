@@ -15,11 +15,23 @@ local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
 local SilentAimEnabled = false
 local StickyTarget = false
 local IgnoreBotHighlight = false
-local FovRadius = 1000 -- Увеличенный радиус
-local SelectedBone = "Head" -- Попробуйте "UpperTorso" для ботов
+local FovRadius = 1000
+local SelectedBone = "HumanoidRootPart" -- Замените на подходящее имя после проверки
 local WallCheck = false
 local ForceFieldCheck = false
 local CurrentTarget = nil
+
+-- Получение объекта оружия
+local function getWeapon()
+    local weaponName = Player.Name .. "CustomGun1"
+    local weapon = workspace:FindFirstChild(weaponName) or workspace:FindFirstChild("KocTuk_TOPCustomGun_2")
+    if not weapon then
+        warn("Weapon not found in workspace:", weaponName)
+    else
+        print("Found weapon:", weapon.Name)
+    end
+    return weapon
+end
 
 -- Проверка видимости через Raycast
 local function IsVisible(targetPos)
@@ -31,6 +43,30 @@ local function IsVisible(targetPos)
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil or (result and (result.Instance.Position - targetPos).Magnitude < 2)
+end
+
+-- Функция для создания аргументов
+local function buildShootArgs(tool, targetCharacter, targetPos, selectedBone, isBot)
+    if not (tool and targetCharacter and targetPos) then
+        print("buildShootArgs: отсутствует tool, targetCharacter или targetPos")
+        return nil
+    end
+    local humanoid = targetCharacter:FindFirstChild("Humanoid")
+    if not humanoid then
+        print("buildShootArgs: Humanoid не найден у " .. targetCharacter.Name)
+        return nil
+    end
+    local cameraPos = Camera.CFrame.Position
+    local cf = CFrame.new(cameraPos, targetPos)
+    local hitData = {
+        ["1"] = {
+            humanoid,
+            selectedBone == "Head",
+            true,
+            math.floor((cameraPos - targetPos).Magnitude)
+        }
+    }
+    return { workspace:GetServerTimeNow(), tool, cf, true, hitData }
 end
 
 -- Поиск ближайшей цели
@@ -96,6 +132,8 @@ function SilentAimModule:Start()
         if self == Shoot and getnamecallmethod() == "FireServer" then
             local args = {...}
             print("FireServer called with args:", args)
+            print("Original args[2]:", args[2] and args[2].Name or "nil")
+            print("Original args[4]:", args[4])
             if SilentAimEnabled then
                 print("SilentAimEnabled is true")
                 if StickyTarget and CurrentTarget then
@@ -109,19 +147,26 @@ function SilentAimModule:Start()
                     CurrentTarget = GetClosestTarget()
                     print("Selected CurrentTarget:", CurrentTarget and CurrentTarget.Name or "nil")
                 end
-                args[4] = true -- Всегда true
                 if CurrentTarget then
                     local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
                     print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
                     if hum then
-                        local isHead = (SelectedBone == "Head")
-                        local isTorso = true -- Всегда true для игроков
-                        local dist = (Camera.CFrame.Position - CurrentTarget.Position).Magnitude
-                        print("isHead:", isHead, "isTorso:", isTorso, "Distance:", math.floor(dist))
-                        local fakeHit = { hum, isHead, isTorso, math.floor(dist) }
-                        args[5] = { ["1"] = fakeHit }
-                        args[3] = CFrame.new(Camera.CFrame.Position, CurrentTarget.Position)
-                        print("Modified args[3]:", args[3], "Modified args[4]:", args[4], "Modified args[5]:", args[5])
+                        local isBot = CurrentTarget.Parent.Parent == workspace:FindFirstChild("ServerBots")
+                        local tool = getWeapon()
+                        if not tool then
+                            warn("No valid weapon found, using original args[2]")
+                            return oldNamecall(self, unpack(args))
+                        end
+                        local newArgs = buildShootArgs(tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
+                        if newArgs then
+                            args = newArgs
+                            print("Modified args:", args)
+                            print("Modified args[2]:", args[2].Name)
+                            print("Modified args[4]:", args[4])
+                        else
+                            print("Failed to build new args")
+                            return oldNamecall(self, unpack(args))
+                        end
                     end
                 end
             end
@@ -151,6 +196,7 @@ function SilentAimModule:SetConfig(config)
     WallCheck = config.WallCheck ~= nil and config.WallCheck or WallCheck
     ForceFieldCheck = config.ForceFieldCheck ~= nil and config.ForceFieldCheck or ForceFieldCheck
     print("Config updated:", config)
+    print("Current settings: SilentAimEnabled=", SilentAimEnabled, "FovRadius=", FovRadius, "SelectedBone=", SelectedBone)
 end
 
 return SilentAimModule

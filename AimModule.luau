@@ -1,170 +1,172 @@
-local AimbotModule = {}
+-- silent_aim_module.luau
+-- ⚠️ Учебный скрипт для теста защиты ⚠️
+
+local SilentAimModule = {}
 
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Mouse = Player:GetMouse()
-local ClientBots = workspace:WaitForChild("ClientBots")
+local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
 
--- Vars
-local AimbotEnabled = false
-local WallCheck = false
-local FovCheck = false
-local HighlightCheck = true
-local ForceFieldCheck = true
+-- Silent Aim Variables
+local SilentAimEnabled = false
 local StickyTarget = false
-local Smoothness = 0
+local IgnoreBotHighlight = false
 local FovRadius = 150
 local SelectedBone = "Head"
-local AimKey = "MouseButton2"
+local WallCheck = true
+local ForceFieldCheck = true
 local CurrentTarget = nil
 
--- FOV Circle + Center Dot
-local FovCircle = Drawing.new("Circle")
-FovCircle.Visible = false
-FovCircle.Thickness = 2
-FovCircle.Color = Color3.fromRGB(255, 0, 0)
-FovCircle.Filled = false
-FovCircle.Radius = FovRadius
-
-local CenterDot = Drawing.new("Circle")
-CenterDot.Visible = true
-CenterDot.Thickness = 2
-CenterDot.Color = Color3.fromRGB(255, 0, 0)
-CenterDot.Filled = true
-CenterDot.Radius = 2
-CenterDot.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
--- Visibility check
-local function IsVisible(targetPos, targetChar)
+-- Проверка видимости через Raycast
+local function IsVisible(targetPos)
     if not WallCheck then return true end
     local origin = Camera.CFrame.Position
-    local direction = targetPos - origin
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = { Player.Character }
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.IgnoreWater = true
-
-    local result = workspace:Raycast(origin, direction, params)
-    if not result then return true end
-    if not result.Instance.CanCollide then return true end
-    return result.Instance:IsDescendantOf(targetChar)
+    local direction = (targetPos - origin)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = { Player.Character }
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    return result == nil or (result and (result.Instance.Position - targetPos).Magnitude < 2)
 end
 
--- Target finder
+-- Поиск ближайшей цели
 local function GetClosestTarget()
-    local closest, minDist = nil, FovCheck and FovRadius or math.huge
-    local allTargets = {}
+    local closest, minDist = nil, FovRadius
+    print("Searching for target, FovRadius:", FovRadius, "SelectedBone:", SelectedBone)
 
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            table.insert(allTargets, p.Character)
-        end
-    end
-    for _, bot in ipairs(ClientBots:GetChildren()) do
-        if bot:IsA("Model") and bot:FindFirstChild("Humanoid") and bot.Humanoid.Health > 0 then
-            table.insert(allTargets, bot)
-        end
-    end
-
-    for _, char in ipairs(allTargets) do
-        local bone = char:FindFirstChild(SelectedBone)
-        if bone then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
-            if onScreen then
-                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if dist < minDist then
-                    if HighlightCheck and not char:FindFirstChild("RedHighlight") then continue end
-                    if ForceFieldCheck and char:FindFirstChildOfClass("ForceField") then continue end
-                    if IsVisible(bone.Position, char) then
-                        minDist = dist
-                        closest = bone
+        if p ~= Player and p.Character then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local bone = p.Character:FindFirstChild(SelectedBone)
+            print("Checking player:", p.Name, "Humanoid:", hum, "Bone:", bone)
+            if hum and bone and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) -
+                                  Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    print("Player:", p.Name, "Distance:", dist, "OnScreen:", onScreen)
+                    if dist < minDist then
+                        if not IgnoreBotHighlight and p.Character:FindFirstChild("RedHighlight") then
+                            print("Skipping player due to RedHighlight:", p.Name)
+                        elseif ForceFieldCheck and p.Character:FindFirstChildOfClass("ForceField") then
+                            print("Skipping player due to ForceField:", p.Name)
+                        elseif IsVisible(bone.Position) then
+                            print("Valid player target found:", p.Name, "Bone:", bone.Name)
+                            closest, minDist = bone, dist
+                        else
+                            print("Player not visible:", p.Name)
+                        end
                     end
                 end
             end
         end
     end
 
+    local ServerBots = workspace:FindFirstChild("ServerBots")
+    if ServerBots then
+        for _, bot in ipairs(ServerBots:GetChildren()) do
+            local hum = bot:FindFirstChildOfClass("Humanoid")
+            local bone = bot:FindFirstChild(SelectedBone)
+            print("Checking bot:", bot.Name, "Humanoid:", hum, "Bone:", bone)
+            if hum and bone and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) -
+                                  Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    print("Bot:", bot.Name, "Distance:", dist, "OnScreen:", onScreen)
+                    if dist < minDist then
+                        if not IgnoreBotHighlight and bot:FindFirstChild("RedHighlight") then
+                            print("Skipping bot due to RedHighlight:", bot.Name)
+                        elseif ForceFieldCheck and bot:FindFirstChildOfClass("ForceField") then
+                            print("Skipping bot due to ForceField:", bot.Name)
+                        elseif IsVisible(bone.Position) then
+                            print("Valid bot target found:", bot.Name, "Bone:", bone.Name)
+                            closest, minDist = bone, dist
+                        else
+                            print("Bot not visible:", bot.Name)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    print("Closest target:", closest and closest.Name or "nil")
     return closest
 end
 
--- Main aimbot loop
-local aimbotConnection
-function AimbotModule:Start()
-    if aimbotConnection then return end
-    aimbotConnection = RunService.RenderStepped:Connect(function()
-        CenterDot.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-        if AimbotEnabled and FovCheck then
-            FovCircle.Visible = true
-            FovCircle.Radius = FovRadius
-            FovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-        else
-            FovCircle.Visible = false
-        end
+-- Хук FireServer
+local oldNamecall
+function SilentAimModule:Start()
+    if oldNamecall then return end
+    if not Shoot:IsA("RemoteEvent") then
+        warn("Shoot is not RemoteEvent")
+        return
+    end
 
-        if not AimbotEnabled then 
-            CurrentTarget = nil
-            return 
-        end
-
-        local shouldAim = false
-        if AimKey:find("MouseButton") then
-            local btn = Enum.UserInputType[AimKey]
-            if btn then shouldAim = UserInputService:IsMouseButtonPressed(btn) end
-        else
-            local kc = Enum.KeyCode[AimKey]
-            if kc then shouldAim = UserInputService:IsKeyDown(kc) end
-        end
-
-        if shouldAim then
-            if StickyTarget and CurrentTarget then
-                local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")
-                if not humanoid or humanoid.Health <= 0 or not CurrentTarget.Parent or not IsVisible(CurrentTarget.Position, CurrentTarget.Parent) then
-                    CurrentTarget = nil
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        if self == Shoot and getnamecallmethod() == "FireServer" then
+            local args = {...}
+            print("FireServer called with args:", args)
+            if SilentAimEnabled then
+                print("SilentAimEnabled is true")
+                if StickyTarget and CurrentTarget then
+                    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
+                    if not hum or hum.Health <= 0 or not IsVisible(CurrentTarget.Position) then
+                        print("StickyTarget invalidated, resetting CurrentTarget")
+                        CurrentTarget = nil
+                    end
+                end
+                if not CurrentTarget then
+                    CurrentTarget = GetClosestTarget()
+                    print("Selected CurrentTarget:", CurrentTarget and CurrentTarget.Name or "nil")
+                end
+                if CurrentTarget then
+                    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
+                    print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
+                    if hum then
+                        local isHead = (SelectedBone == "Head")
+                        local isTorso = true -- Всегда true для игроков
+                        local dist = (Camera.CFrame.Position - CurrentTarget.Position).Magnitude
+                        print("isHead:", isHead, "isTorso:", isTorso, "Distance:", math.floor(dist))
+                        local fakeHit = { hum, isHead, isTorso, math.floor(dist) }
+                        args[5] = { ["1"] = fakeHit }
+                        args[4] = true -- Устанавливаем true, как в логах
+                        args[3] = CFrame.new(Camera.CFrame.Position, CurrentTarget.Position) -- Направляем CFrame на цель
+                        print("Modified args[3]:", args[3], "Modified args[4]:", args[4], "Modified args[5]:", args[5])
+                    end
                 end
             end
-
-            if not CurrentTarget then
-                CurrentTarget = GetClosestTarget()
-            end
-
-            if CurrentTarget then
-                local camPos = Camera.CFrame.Position
-                local newCFrame = CFrame.new(camPos, CurrentTarget.Position)
-                Camera.CFrame = Smoothness > 0 and Camera.CFrame:Lerp(newCFrame, Smoothness) or newCFrame
-            end
-        elseif not StickyTarget then
-            CurrentTarget = nil
+            return oldNamecall(self, unpack(args))
         end
+        return oldNamecall(self, ...)
     end)
+
+    print("[SilentAimModule] Hooked FireServer")
 end
 
-function AimbotModule:Stop()
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
+function SilentAimModule:Stop()
+    if oldNamecall then
+        hookmetamethod(game, "__namecall", oldNamecall)
+        oldNamecall = nil
+        print("[SilentAimModule] Unhooked")
     end
     CurrentTarget = nil
-    FovCircle.Visible = false
-    CenterDot.Visible = false
 end
 
-function AimbotModule:SetConfig(config)
-    AimbotEnabled = config.AimbotEnabled or AimbotEnabled
-    WallCheck = config.WallCheck or WallCheck
-    FovCheck = config.FovCheck or FovCheck
-    HighlightCheck = config.HighlightCheck or HighlightCheck
-    ForceFieldCheck = config.ForceFieldCheck or ForceFieldCheck
-    StickyTarget = config.StickyTarget or StickyTarget
-    Smoothness = config.Smoothness or Smoothness
+function SilentAimModule:SetConfig(config)
+    SilentAimEnabled = config.SilentAimEnabled ~= nil and config.SilentAimEnabled or SilentAimEnabled
+    StickyTarget = config.StickyTarget ~= nil and config.StickyTarget or StickyTarget
+    IgnoreBotHighlight = config.IgnoreBotHighlight ~= nil and config.IgnoreBotHighlight or IgnoreBotHighlight
     FovRadius = config.FovRadius or FovRadius
     SelectedBone = config.SelectedBone or SelectedBone
-    AimKey = config.AimKey or AimKey
+    WallCheck = config.WallCheck ~= nil and config.WallCheck or WallCheck
+    ForceFieldCheck = config.ForceFieldCheck ~= nil and config.ForceFieldCheck or ForceFieldCheck
+    print("Config updated:", config)
 end
 
-
-return AimbotModule
+return SilentAimModule

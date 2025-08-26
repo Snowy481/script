@@ -52,30 +52,33 @@ local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, 
     local humanoid = targetCharacter:FindFirstChild("Humanoid")
     if not humanoid then return oldArgs end
 
-    local cameraPos = Camera.CFrame.Position
-    local cf = CFrame.new(cameraPos, hitPos)
-    local dist = math.floor((cameraPos - hitPos).Magnitude)
+    local camPos = Camera.CFrame.Position
+    local lookCF = CFrame.new(camPos, hitPos)
+    local dist = math.floor((camPos - hitPos).Magnitude)
 
-    -- таблица попаданий
-    local hitTable = {
+    -- таблица попаданий = строго то, что ждёт контроллер
+    local hitData = {
         ["1"] = {
             humanoid,
-            boneName == "Head",  -- хэдшот?
-            true,                -- просто фикс true
-            dist                 -- дистанция
+            boneName == "Head",
+            true,
+            dist
         }
     }
 
+    -- СБОР РОВНО 6 АРГУМЕНТОВ (и ни одним меньше)
     local newArgs = {}
-    newArgs[1] = oldArgs[1] or workspace:GetServerTimeNow() -- serverTime
-    newArgs[2] = tool                                      -- оружие
-    newArgs[3] = cf                                        -- камера/направление
-    newArgs[4] = true                                      -- isAimed (или oldArgs[4])
-    newArgs[5] = hitTable                                  -- таблица попаданий
+    newArgs[1] = oldArgs[1]               -- number (оставляем исходный тайм/токен)
+    newArgs[2] = tool                     -- Instance (оружие)
+    newArgs[3] = hitPos                   -- Vector3 (точка попадания)
+    newArgs[4] = lookCF                   -- CFrame  (камера -> цель)
+    newArgs[5] = oldArgs[5]               -- boolean (берём исходный, чтобы тип 100% совпал)
+    newArgs[6] = hitData                  -- table   (hitData)
 
-    -- отладка
-    for i, v in pairs(newArgs) do
-        print("NewArg["..i.."] =", v, typeof(v))
+    -- быстрый чек типов, по порядку 1..6
+    for i = 1, 6 do
+        local v = newArgs[i]
+        print(("NewArg[%d] = %s (%s)"):format(i, tostring(v), typeof(v)))
     end
 
     return newArgs
@@ -213,6 +216,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

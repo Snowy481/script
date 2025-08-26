@@ -7,8 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Events = ReplicatedStorage:WaitForChild("Events")
-local Shoot = Events:WaitForChild("Shoot") -- Ensure Shoot is loaded
+local Shoot = game.ReplicatedStorage.Events.Shoot
 
 -- Silent Aim Variables
 local SilentAimEnabled = false
@@ -145,3 +144,4 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+

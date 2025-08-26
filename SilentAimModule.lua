@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Shoot = ReplicatedStorage.Events.Shoot or game:GetService("ReplicatedStorage").Events.Shoot -- RemoteEvent
+local Shoot = ReplicatedStorage.Events.Shoot or game:GetService("ReplicatedStorage").Events.Shoot
 
 -- Silent Aim Variables
 local SilentAimEnabled = false
@@ -77,7 +77,7 @@ local oldFireServer
 function SilentAimModule:Start()
     if oldFireServer then return end
     oldFireServer = Shoot.FireServer
-    Shoot.FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
+    Shoot:FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
         if SilentAimEnabled then
             if StickyTarget and CurrentTarget then
                 local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")
@@ -130,6 +130,5 @@ function SilentAimModule:SetConfig(config)
     WallCheck = config.WallCheck or WallCheck
     ForceFieldCheck = config.ForceFieldCheck or ForceFieldCheck
 end
-
 
 return SilentAimModule

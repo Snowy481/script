@@ -174,12 +174,23 @@ function SilentAimModule:Start()
                     end
                 end
             end
-            local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
-if newArgs then
-    return oldNamecall(self, unpack(newArgs))
-else
-    return oldNamecall(self, unpack(args))
+if CurrentTarget then
+    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
+    print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
+    if hum then
+        local isBot = CurrentTarget.Parent.Parent == workspace:FindFirstChild("ServerBots")
+        local tool = getWeapon()
+        if not tool then
+            warn("No valid weapon found, using original args[2]")
+            return oldNamecall(self, unpack(args))
+        end
+        local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
+        return oldNamecall(self, unpack(newArgs))
+    end
 end
+
+-- если нет CurrentTarget или что-то пошло не так — стреляем по дефолту
+return oldNamecall(self, unpack(args))
         end
         return oldNamecall(self, ...)
     end)
@@ -207,6 +218,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

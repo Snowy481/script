@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Shoot = ReplicatedStorage.Events.Shoot -- RemoteEvent
+local Shoot = ReplicatedStorage.Events.Shoot or game:GetService("ReplicatedStorage").Events.Shoot -- RemoteEvent
 
 -- Silent Aim Variables
 local SilentAimEnabled = false
@@ -130,5 +130,6 @@ function SilentAimModule:SetConfig(config)
     WallCheck = config.WallCheck or WallCheck
     ForceFieldCheck = config.ForceFieldCheck or ForceFieldCheck
 end
+
 
 return SilentAimModule

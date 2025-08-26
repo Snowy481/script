@@ -12,13 +12,13 @@ local Player = Players.LocalPlayer
 local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
 
 -- Silent Aim Variables
-local SilentAimEnabled = false
-local StickyTarget = false
+local SilentAimEnabled = true
+local StickyTarget = true
 local IgnoreBotHighlight = false
 local FovRadius = 150
 local SelectedBone = "Head"
-local WallCheck = true
-local ForceFieldCheck = true
+local WallCheck = false
+local ForceFieldCheck = false
 local CurrentTarget = nil
 
 -- Проверка видимости через Raycast
@@ -170,3 +170,4 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+

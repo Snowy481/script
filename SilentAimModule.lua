@@ -117,12 +117,16 @@ function SilentAimModule:Start()
 
         return oldFireServer(self, timestamp, blaster, cframe, isAimed, hits)
     end
+    print("Silent Aim hooked successfully at", os.time())
 end
 
 function SilentAimModule:Stop()
-    if oldFireServer then
+    if oldFireServer and Shoot and Shoot:IsA("RemoteEvent") then
         Shoot.FireServer = oldFireServer
         oldFireServer = nil
+        print("Silent Aim unhooked successfully at", os.time())
+    else
+        warn("Failed to unhook FireServer: Shoot is not a RemoteEvent or oldFireServer is nil")
     end
     CurrentTarget = nil
 end

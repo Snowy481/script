@@ -1,195 +1,170 @@
--- silent_aim_module.luau
--- ⚠️ Учебный скрипт для теста защиты ⚠️
-
-local SilentAimModule = {}
+local AimbotModule = {}
 
 -- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 
 local Player = Players.LocalPlayer
-local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
+local Mouse = Player:GetMouse()
+local ClientBots = workspace:WaitForChild("ClientBots")
 
--- Silent Aim Variables
-local SilentAimEnabled = true
-local StickyTarget = true
-local IgnoreBotHighlight = true
-local FovRadius = 1000
-local SelectedBone = "HumanoidRootPart"
+-- Vars
+local AimbotEnabled = false
 local WallCheck = false
-local ForceFieldCheck = false
+local FovCheck = false
+local HighlightCheck = true
+local ForceFieldCheck = true
+local StickyTarget = false
+local Smoothness = 0
+local FovRadius = 150
+local SelectedBone = "Head"
+local AimKey = "MouseButton2"
 local CurrentTarget = nil
 
--- Получение объекта оружия
-local function getWeapon()
-    local weaponName = Player.Name .. "CustomGun1"
-    local weapon = workspace:FindFirstChild(weaponName) or 
-                   workspace:FindFirstChild("KocTuk_TOPCustomGun_1") or 
-                   workspace:FindFirstChild("KocTuk_TOPCustomGun_2")
-    if not weapon then
-        warn("Weapon not found in workspace:", weaponName, "KocTuk_TOPCustomGun_1", "KocTuk_TOPCustomGun_2")
-    else
-        print("Found weapon:", weapon.Name)
-    end
-    return weapon
-end
+-- FOV Circle + Center Dot
+local FovCircle = Drawing.new("Circle")
+FovCircle.Visible = false
+FovCircle.Thickness = 2
+FovCircle.Color = Color3.fromRGB(255, 0, 0)
+FovCircle.Filled = false
+FovCircle.Radius = FovRadius
 
--- Проверка видимости через Raycast
-local function IsVisible(targetPos)
+local CenterDot = Drawing.new("Circle")
+CenterDot.Visible = true
+CenterDot.Thickness = 2
+CenterDot.Color = Color3.fromRGB(255, 0, 0)
+CenterDot.Filled = true
+CenterDot.Radius = 2
+CenterDot.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+-- Visibility check
+local function IsVisible(targetPos, targetChar)
     if not WallCheck then return true end
     local origin = Camera.CFrame.Position
-    local direction = (targetPos - origin)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = { Player.Character }
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-    local result = workspace:Raycast(origin, direction, raycastParams)
-    return result == nil or (result and (result.Instance.Position - targetPos).Magnitude < 2)
+    local direction = targetPos - origin
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = { Player.Character }
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, direction, params)
+    if not result then return true end
+    if not result.Instance.CanCollide then return true end
+    return result.Instance:IsDescendantOf(targetChar)
 end
 
--- Функция для создания аргументов
-local function buildShootArgs(originalArgs, tool, targetCharacter, targetPos, selectedBone, isBot)
-    if not (tool and targetCharacter and targetPos) then return originalArgs end
-    local humanoid = targetCharacter:FindFirstChild("Humanoid")
-    if not humanoid then return originalArgs end
-
-    local cameraPos = Camera.CFrame.Position
-    local cf = CFrame.new(cameraPos, targetPos)
-    local dist = math.floor((cameraPos - targetPos).Magnitude)
-
-    -- hitData (копия оригинального формата)
-    local hitData = {
-        ["1"] = {
-            humanoid,
-            true
-            true,
-            dist
-        }
-    }
-
-    -- копируем оригинальные аргументы и подменяем нужное
-    local newArgs = table.clone(originalArgs)
-    newArgs[2] = tool
-    newArgs[3] = cf
-    newArgs[5] = hitData
-
-    return newArgs
-end
-
--- Поиск ближайшей цели
+-- Target finder
 local function GetClosestTarget()
-    local closest, minDist = nil, FovRadius
-    print("Searching for target, FovRadius:", FovRadius, "SelectedBone:", SelectedBone)
+    local closest, minDist = nil, FovCheck and FovRadius or math.huge
+    local allTargets = {}
 
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character then
-            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-            local bone = p.Character:FindFirstChild(SelectedBone)
-            print("Checking player:", p.Name, "Humanoid:", hum, "Bone:", bone)
-            if hum and bone and hum.Health > 0 then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
-                print("Player:", p.Name, "ScreenPos:", screenPos, "OnScreen:", onScreen)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) -
-                                  Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    print("Player:", p.Name, "Distance:", dist)
-                    if dist < minDist then
-                        closest, minDist = bone, dist
-                        print("Valid player target found:", p.Name, "Bone:", bone.Name)
+        if p ~= Player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            table.insert(allTargets, p.Character)
+        end
+    end
+    for _, bot in ipairs(ClientBots:GetChildren()) do
+        if bot:IsA("Model") and bot:FindFirstChild("Humanoid") and bot.Humanoid.Health > 0 then
+            table.insert(allTargets, bot)
+        end
+    end
+
+    for _, char in ipairs(allTargets) do
+        local bone = char:FindFirstChild(SelectedBone)
+        if bone then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+            if onScreen then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if dist < minDist then
+                    if HighlightCheck and not char:FindFirstChild("RedHighlight") then continue end
+                    if ForceFieldCheck and char:FindFirstChildOfClass("ForceField") then continue end
+                    if IsVisible(bone.Position, char) then
+                        minDist = dist
+                        closest = bone
                     end
                 end
             end
         end
     end
 
-    local ServerBots = workspace:FindFirstChild("ServerBots")
-    if ServerBots then
-        for _, bot in ipairs(ServerBots:GetChildren()) do
-            local hum = bot:FindFirstChildOfClass("Humanoid")
-            local bone = bot:FindFirstChild(SelectedBone)
-            print("Checking bot:", bot.Name, "Humanoid:", hum, "Bone:", bone)
-            if hum and bone and hum.Health > 0 then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
-                print("Bot:", bot.Name, "ScreenPos:", screenPos, "OnScreen:", onScreen)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) -
-                                  Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    print("Bot:", bot.Name, "Distance:", dist)
-                    if dist < minDist then
-                        closest, minDist = bone, dist
-                        print("Valid bot target found:", bot.Name, "Bone:", bone.Name)
-                    end
-                end
-            end
-        end
-    end
-
-    print("Closest target:", closest and closest.Name or "nil")
     return closest
 end
 
--- Хук FireServer
-local oldNamecall
-function SilentAimModule:Start()
-    if oldNamecall then return end
-    if not Shoot:IsA("RemoteEvent") then
-        warn("Shoot is not RemoteEvent")
-        return
-    end
-
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        if self == Shoot and getnamecallmethod() == "FireServer" then
-            local args = {...}
-            for i, v in ipairs(args) do
-                print("Arg["..i.."] =", v, typeof(v))
-            end
-            print("FireServer called with args:", args)
-            print("Original args[2]:", args[2] and args[2].Name or "nil")
-            print("Original args[4]:", args[4])
-            print("SilentAimEnabled:", SilentAimEnabled)
-            if SilentAimEnabled then
-                print("SilentAimEnabled is true")
-                if StickyTarget and CurrentTarget then
-                    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
-                    if not hum or hum.Health <= 0 or not IsVisible(CurrentTarget.Position) then
-                        print("StickyTarget invalidated, resetting CurrentTarget")
-                        CurrentTarget = nil
-                    end
-                end
-                if not CurrentTarget then
-                    CurrentTarget = GetClosestTarget()
-                    print("Selected CurrentTarget:", CurrentTarget and CurrentTarget.Name or "nil")
-                end
-                if CurrentTarget then
-                    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
-                    print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
-                    if hum then
-                        local isBot = CurrentTarget.Parent.Parent == workspace:FindFirstChild("ServerBots")
-                        local tool = getWeapon()
-                        if not tool then
-                            warn("No valid weapon found, using original args[2]")
-                            return oldNamecall(self, unpack(args))
-                        end
-                        local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
-                    end
-                end
-            end
-            return oldNamecall(self, unpack(args))
+-- Main aimbot loop
+local aimbotConnection
+function AimbotModule:Start()
+    if aimbotConnection then return end
+    aimbotConnection = RunService.RenderStepped:Connect(function()
+        CenterDot.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+        if AimbotEnabled and FovCheck then
+            FovCircle.Visible = true
+            FovCircle.Radius = FovRadius
+            FovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+        else
+            FovCircle.Visible = false
         end
-        return oldNamecall(self, ...)
-    end)
 
-    print("[SilentAimModule] Hooked FireServer")
+        if not AimbotEnabled then 
+            CurrentTarget = nil
+            return 
+        end
+
+        local shouldAim = false
+        if AimKey:find("MouseButton") then
+            local btn = Enum.UserInputType[AimKey]
+            if btn then shouldAim = UserInputService:IsMouseButtonPressed(btn) end
+        else
+            local kc = Enum.KeyCode[AimKey]
+            if kc then shouldAim = UserInputService:IsKeyDown(kc) end
+        end
+
+        if shouldAim then
+            if StickyTarget and CurrentTarget then
+                local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")
+                if not humanoid or humanoid.Health <= 0 or not CurrentTarget.Parent or not IsVisible(CurrentTarget.Position, CurrentTarget.Parent) then
+                    CurrentTarget = nil
+                end
+            end
+
+            if not CurrentTarget then
+                CurrentTarget = GetClosestTarget()
+            end
+
+            if CurrentTarget then
+                local camPos = Camera.CFrame.Position
+                local newCFrame = CFrame.new(camPos, CurrentTarget.Position)
+                Camera.CFrame = Smoothness > 0 and Camera.CFrame:Lerp(newCFrame, Smoothness) or newCFrame
+            end
+        elseif not StickyTarget then
+            CurrentTarget = nil
+        end
+    end)
 end
 
-function SilentAimModule:Stop()
-    if oldNamecall then
-        hookmetamethod(game, "__namecall", oldNamecall)
-        oldNamecall = nil
-        print("[SilentAimModule] Unhooked")
+function AimbotModule:Stop()
+    if aimbotConnection then
+        aimbotConnection:Disconnect()
+        aimbotConnection = nil
     end
     CurrentTarget = nil
+    FovCircle.Visible = false
+    CenterDot.Visible = false
 end
 
-return SilentAimModule
+function AimbotModule:SetConfig(config)
+    AimbotEnabled = config.AimbotEnabled or AimbotEnabled
+    WallCheck = config.WallCheck or WallCheck
+    FovCheck = config.FovCheck or FovCheck
+    HighlightCheck = config.HighlightCheck or HighlightCheck
+    ForceFieldCheck = config.ForceFieldCheck or ForceFieldCheck
+    StickyTarget = config.StickyTarget or StickyTarget
+    Smoothness = config.Smoothness or Smoothness
+    FovRadius = config.FovRadius or FovRadius
+    SelectedBone = config.SelectedBone or SelectedBone
+    AimKey = config.AimKey or AimKey
+end
 
+
+return AimbotModule

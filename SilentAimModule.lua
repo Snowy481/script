@@ -61,7 +61,7 @@ local function buildShootArgs(originalArgs, tool, targetCharacter, targetPos, se
     local hitData = {
         ["1"] = {
             humanoid,
-            true
+            true,
             true,
             dist
         }
@@ -202,6 +202,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

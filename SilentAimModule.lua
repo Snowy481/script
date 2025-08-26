@@ -77,7 +77,7 @@ local oldFireServer
 function SilentAimModule:Start()
     if oldFireServer then return end
     oldFireServer = Shoot.FireServer
-    Shoot:FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
+    Shoot.FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
         if SilentAimEnabled then
             if StickyTarget and CurrentTarget then
                 local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")

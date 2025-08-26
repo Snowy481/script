@@ -12,9 +12,9 @@ local Player = Players.LocalPlayer
 local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
 
 -- Silent Aim Variables
-local SilentAimEnabled = false
-local StickyTarget = false
-local IgnoreBotHighlight = false
+local SilentAimEnabled = true
+local StickyTarget = true
+local IgnoreBotHighlight = true
 local FovRadius = 1000
 local SelectedBone = "HumanoidRootPart" -- Замените на подходящее имя после проверки
 local WallCheck = false
@@ -24,9 +24,11 @@ local CurrentTarget = nil
 -- Получение объекта оружия
 local function getWeapon()
     local weaponName = Player.Name .. "CustomGun1"
-    local weapon = workspace:FindFirstChild(weaponName) or workspace:FindFirstChild("KocTuk_TOPCustomGun_2")
+    local weapon = workspace:FindFirstChild(weaponName) or 
+                   workspace:FindFirstChild("KocTuk_TOPCustomGun_1") or 
+                   workspace:FindFirstChild("KocTuk_TOPCustomGun_2")
     if not weapon then
-        warn("Weapon not found in workspace:", weaponName)
+        warn("Weapon not found in workspace:", weaponName, "KocTuk_TOPCustomGun_1", "KocTuk_TOPCustomGun_2")
     else
         print("Found weapon:", weapon.Name)
     end
@@ -58,15 +60,18 @@ local function buildShootArgs(tool, targetCharacter, targetPos, selectedBone, is
     end
     local cameraPos = Camera.CFrame.Position
     local cf = CFrame.new(cameraPos, targetPos)
+    local dist = math.floor((cameraPos - targetPos).Magnitude)
     local hitData = {
         ["1"] = {
             humanoid,
             selectedBone == "Head",
             true,
-            math.floor((cameraPos - targetPos).Magnitude)
+            dist
         }
     }
-    return { workspace:GetServerTimeNow(), tool, cf, true, hitData }
+    local args = { workspace:GetServerTimeNow(), tool, cf, true, hitData }
+    print("buildShootArgs created args:", args)
+    return args
 end
 
 -- Поиск ближайшей цели
@@ -81,10 +86,11 @@ local function GetClosestTarget()
             print("Checking player:", p.Name, "Humanoid:", hum, "Bone:", bone)
             if hum and bone and hum.Health > 0 then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+                print("Player:", p.Name, "ScreenPos:", screenPos, "OnScreen:", onScreen)
                 if onScreen then
                     local dist = (Vector2.new(screenPos.X, screenPos.Y) -
                                   Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    print("Player:", p.Name, "Distance:", dist, "OnScreen:", onScreen)
+                    print("Player:", p.Name, "Distance:", dist)
                     if dist < minDist then
                         closest, minDist = bone, dist
                         print("Valid player target found:", p.Name, "Bone:", bone.Name)
@@ -102,10 +108,11 @@ local function GetClosestTarget()
             print("Checking bot:", bot.Name, "Humanoid:", hum, "Bone:", bone)
             if hum and bone and hum.Health > 0 then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+                print("Bot:", bot.Name, "ScreenPos:", screenPos, "OnScreen:", onScreen)
                 if onScreen then
                     local dist = (Vector2.new(screenPos.X, screenPos.Y) -
                                   Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    print("Bot:", bot.Name, "Distance:", dist, "OnScreen:", onScreen)
+                    print("Bot:", bot.Name, "Distance:", dist)
                     if dist < minDist then
                         closest, minDist = bone, dist
                         print("Valid bot target found:", bot.Name, "Bone:", bone.Name)
@@ -134,6 +141,7 @@ function SilentAimModule:Start()
             print("FireServer called with args:", args)
             print("Original args[2]:", args[2] and args[2].Name or "nil")
             print("Original args[4]:", args[4])
+            print("SilentAimEnabled:", SilentAimEnabled)
             if SilentAimEnabled then
                 print("SilentAimEnabled is true")
                 if StickyTarget and CurrentTarget then

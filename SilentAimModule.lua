@@ -191,5 +191,27 @@ function SilentAimModule:Stop()
     CurrentTarget = nil
 end
 
+function SilentAimModule:SetConfig(config)
+    if config.StickyTarget ~= nil then
+        StickyTarget = config.StickyTarget
+    end
+    if config.IgnoreBotHighlight ~= nil then
+        IgnoreBotHighlight = config.IgnoreBotHighlight
+    end
+    if config.SelectedBone ~= nil then
+        SelectedBone = config.SelectedBone
+    end
+    if config.FovRadius ~= nil then
+        FovRadius = config.FovRadius
+    end
+    if config.WallCheck ~= nil then
+        WallCheck = config.WallCheck
+    end
+    if config.ForceFieldCheck ~= nil then
+        ForceFieldCheck = config.ForceFieldCheck
+    end
+end
+
 return SilentAimModule
+
 

@@ -74,59 +74,62 @@ local function GetClosestTarget()
     return closest
 end
 
--- Hook FireServer
-local oldFireServer
+-- Hook using hookmetamethod for namecall
+local oldNamecall
 function SilentAimModule:Start()
-    if oldFireServer then return end
+    if oldNamecall then return end
     if not Shoot:IsA("RemoteEvent") then
         warn("Shoot is not a RemoteEvent, cannot hook FireServer")
         return
     end
-    oldFireServer = Shoot.FireServer
-    Shoot.FireServer = function(self, timestamp, blaster, cframe, isAimed, hits)
-        if SilentAimEnabled then
-            if StickyTarget and CurrentTarget then
-                local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")
-                if not humanoid or humanoid.Health <= 0 or not CurrentTarget.Parent or not IsVisible(CurrentTarget.Position) then
-                    CurrentTarget = nil
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        if self == Shoot and getnamecallmethod() == "FireServer" then
+            local args = {...}
+            local timestamp, blaster, cframe, isAimed, hits = args[1], args[2], args[3], args[4], args[5]
+            if SilentAimEnabled then
+                if StickyTarget and CurrentTarget then
+                    local humanoid = CurrentTarget.Parent and CurrentTarget.Parent:FindFirstChild("Humanoid")
+                    if not humanoid or humanoid.Health <= 0 or not CurrentTarget.Parent or not IsVisible(CurrentTarget.Position) then
+                        CurrentTarget = nil
+                    end
+                end
+
+                if not CurrentTarget then
+                    CurrentTarget = GetClosestTarget()
+                end
+
+                if CurrentTarget then
+                    local targetHumanoid = CurrentTarget.Parent:FindFirstChild("Humanoid")
+                    if targetHumanoid then
+                        local isHeadshot = (SelectedBone == "Head")
+                        local isTorsoShot = (SelectedBone == "UpperTorso" or SelectedBone == "LowerTorso")
+                        local shotDistance = (Camera.CFrame.Position - CurrentTarget.Position).Magnitude
+
+                        local fakeHit = {
+                            targetHumanoid,
+                            isHeadshot,
+                            isTorsoShot,
+                            math.floor(shotDistance)
+                        }
+
+                        hits = { ["1"] = fakeHit } -- Replace hits; adjust for multi-ray weapons if needed
+                    end
                 end
             end
-
-            if not CurrentTarget then
-                CurrentTarget = GetClosestTarget()
-            end
-
-            if CurrentTarget then
-                local targetHumanoid = CurrentTarget.Parent:FindFirstChild("Humanoid")
-                if targetHumanoid then
-                    local isHeadshot = (SelectedBone == "Head")
-                    local isTorsoShot = (SelectedBone == "UpperTorso" or SelectedBone == "LowerTorso")
-                    local shotDistance = (Camera.CFrame.Position - CurrentTarget.Position).Magnitude
-
-                    local fakeHit = {
-                        targetHumanoid,
-                        isHeadshot,
-                        isTorsoShot,
-                        math.floor(shotDistance)
-                    }
-
-                    hits = { ["1"] = fakeHit } -- Replace hits; adjust for multi-ray weapons if needed
-                end
-            end
+            return oldNamecall(self, timestamp, blaster, cframe, isAimed, hits)
         end
-
-        return oldFireServer(self, timestamp, blaster, cframe, isAimed, hits)
-    end
+        return oldNamecall(self, ...)
+    end)
     print("Silent Aim hooked successfully at", os.time())
 end
 
 function SilentAimModule:Stop()
-    if oldFireServer and Shoot and Shoot:IsA("RemoteEvent") then
-        Shoot.FireServer = oldFireServer
-        oldFireServer = nil
+    if oldNamecall then
+        hookmetamethod(game, "__namecall", oldNamecall)
+        oldNamecall = nil
         print("Silent Aim unhooked successfully at", os.time())
     else
-        warn("Failed to unhook FireServer: Shoot is not a RemoteEvent or oldFireServer is nil")
+        warn("Failed to unhook namecall: oldNamecall is nil")
     end
     CurrentTarget = nil
 end

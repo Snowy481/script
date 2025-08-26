@@ -74,7 +74,7 @@ local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, 
     newArgs[5] = hitTable                                  -- таблица попаданий
 
     -- отладка
-    for i, v in ipairs(newArgs) do
+    for i, v in pairs(newArgs) do
         print("NewArg["..i.."] =", v, typeof(v))
     end
 
@@ -213,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

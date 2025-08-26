@@ -60,7 +60,7 @@ local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, 
     local hitData = {
         ["1"] = {
             humanoid,
-            boneName == "Head",
+            true,
             true,
             dist
         }
@@ -213,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

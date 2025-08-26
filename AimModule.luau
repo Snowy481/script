@@ -12,11 +12,11 @@ local Player = Players.LocalPlayer
 local Shoot = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Shoot")
 
 -- Silent Aim Variables
-local SilentAimEnabled = true
-local StickyTarget = true
+local SilentAimEnabled = false
+local StickyTarget = false
 local IgnoreBotHighlight = false
-local FovRadius = 150
-local SelectedBone = "Head"
+local FovRadius = 1000 -- Увеличенный радиус
+local SelectedBone = "Head" -- Попробуйте "UpperTorso" для ботов
 local WallCheck = false
 local ForceFieldCheck = false
 local CurrentTarget = nil
@@ -50,16 +50,8 @@ local function GetClosestTarget()
                                   Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
                     print("Player:", p.Name, "Distance:", dist, "OnScreen:", onScreen)
                     if dist < minDist then
-                        if not IgnoreBotHighlight and p.Character:FindFirstChild("RedHighlight") then
-                            print("Skipping player due to RedHighlight:", p.Name)
-                        elseif ForceFieldCheck and p.Character:FindFirstChildOfClass("ForceField") then
-                            print("Skipping player due to ForceField:", p.Name)
-                        elseif IsVisible(bone.Position) then
-                            print("Valid player target found:", p.Name, "Bone:", bone.Name)
-                            closest, minDist = bone, dist
-                        else
-                            print("Player not visible:", p.Name)
-                        end
+                        closest, minDist = bone, dist
+                        print("Valid player target found:", p.Name, "Bone:", bone.Name)
                     end
                 end
             end
@@ -79,16 +71,8 @@ local function GetClosestTarget()
                                   Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
                     print("Bot:", bot.Name, "Distance:", dist, "OnScreen:", onScreen)
                     if dist < minDist then
-                        if not IgnoreBotHighlight and bot:FindFirstChild("RedHighlight") then
-                            print("Skipping bot due to RedHighlight:", bot.Name)
-                        elseif ForceFieldCheck and bot:FindFirstChildOfClass("ForceField") then
-                            print("Skipping bot due to ForceField:", bot.Name)
-                        elseif IsVisible(bone.Position) then
-                            print("Valid bot target found:", bot.Name, "Bone:", bone.Name)
-                            closest, minDist = bone, dist
-                        else
-                            print("Bot not visible:", bot.Name)
-                        end
+                        closest, minDist = bone, dist
+                        print("Valid bot target found:", bot.Name, "Bone:", bone.Name)
                     end
                 end
             end
@@ -125,6 +109,7 @@ function SilentAimModule:Start()
                     CurrentTarget = GetClosestTarget()
                     print("Selected CurrentTarget:", CurrentTarget and CurrentTarget.Name or "nil")
                 end
+                args[4] = true -- Всегда true
                 if CurrentTarget then
                     local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
                     print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
@@ -135,8 +120,7 @@ function SilentAimModule:Start()
                         print("isHead:", isHead, "isTorso:", isTorso, "Distance:", math.floor(dist))
                         local fakeHit = { hum, isHead, isTorso, math.floor(dist) }
                         args[5] = { ["1"] = fakeHit }
-                        args[4] = true -- Устанавливаем true, как в логах
-                        args[3] = CFrame.new(Camera.CFrame.Position, CurrentTarget.Position) -- Направляем CFrame на цель
+                        args[3] = CFrame.new(Camera.CFrame.Position, CurrentTarget.Position)
                         print("Modified args[3]:", args[3], "Modified args[4]:", args[4], "Modified args[5]:", args[5])
                     end
                 end
@@ -170,4 +154,3 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
-

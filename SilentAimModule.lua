@@ -48,19 +48,32 @@ local function IsVisible(targetPos)
 end
 
 -- Функция для создания аргументов
-local function buildShootArgs(oldArgs, tool, targetModel, hitPos, bone, isBot)
-    local newArgs = table.clone(oldArgs)
+local function buildShootArgs(oldArgs, tool, targetCharacter, hitPos, boneName, isBot)
+    local humanoid = targetCharacter:FindFirstChild("Humanoid")
+    if not humanoid then return oldArgs end
 
-    newArgs[2] = tool -- оружие
-    newArgs[3] = hitPos -- Vector3
-    newArgs[4] = CFrame.new(hitPos) -- CFrame
-    newArgs[5] = true -- boolean (!!! тут убедись, что это не Instance)
-    newArgs[6] = {
-        Target = targetModel,
-        Bone = bone,
-        IsBot = isBot
+    local cameraPos = Camera.CFrame.Position
+    local cf = CFrame.new(cameraPos, hitPos)
+    local dist = math.floor((cameraPos - hitPos).Magnitude)
+
+    -- таблица попаданий
+    local hitTable = {
+        ["1"] = {
+            humanoid,
+            boneName == "Head",  -- хэдшот?
+            true,                -- просто фикс true
+            dist                 -- дистанция
+        }
     }
 
+    local newArgs = {}
+    newArgs[1] = oldArgs[1] or workspace:GetServerTimeNow() -- serverTime
+    newArgs[2] = tool                                      -- оружие
+    newArgs[3] = cf                                        -- камера/направление
+    newArgs[4] = true                                      -- isAimed (или oldArgs[4])
+    newArgs[5] = hitTable                                  -- таблица попаданий
+
+    -- отладка
     for i, v in ipairs(newArgs) do
         print("NewArg["..i.."] =", v, typeof(v))
     end
@@ -200,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

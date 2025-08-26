@@ -147,7 +147,7 @@ function SilentAimModule:Start()
         if self == Shoot and getnamecallmethod() == "FireServer" then
             -- дебаг вывод
             print("FireServer called with args:")
-            for i, v in ipairs(args) do
+            for i, v in pairs(args) do
                 print("Arg["..i.."] =", v, typeof(v))
             end
 
@@ -213,6 +213,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

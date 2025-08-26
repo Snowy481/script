@@ -1,4 +1,4 @@
--- silent_aim_module.luau
+z-- silent_aim_module.luau
 -- ⚠️ Учебный скрипт для теста защиты ⚠️
 
 local SilentAimModule = {}
@@ -48,30 +48,22 @@ local function IsVisible(targetPos)
 end
 
 -- Функция для создания аргументов
-local function buildShootArgs(originalArgs, tool, targetCharacter, targetPos, selectedBone, isBot)
-    if not (tool and targetCharacter and targetPos) then return originalArgs end
-    local humanoid = targetCharacter:FindFirstChild("Humanoid")
-    if not humanoid then return originalArgs end
+local function buildShootArgs(oldArgs, tool, targetModel, hitPos, bone, isBot)
+    local newArgs = table.clone(oldArgs)
 
-    local cameraPos = Camera.CFrame.Position
-    local cf = CFrame.new(cameraPos, targetPos)
-    local dist = math.floor((cameraPos - targetPos).Magnitude)
-
-    -- hitData (копия оригинального формата)
-    local hitData = {
-        ["1"] = {
-            humanoid,
-            true,
-            true,
-            dist
-        }
+    newArgs[2] = tool -- оружие
+    newArgs[3] = hitPos -- Vector3
+    newArgs[4] = CFrame.new(hitPos) -- CFrame
+    newArgs[5] = true -- boolean (!!! тут убедись, что это не Instance)
+    newArgs[6] = {
+        Target = targetModel,
+        Bone = bone,
+        IsBot = isBot
     }
 
-    -- копируем оригинальные аргументы и подменяем нужное
-    local newArgs = table.clone(originalArgs)
-    newArgs[2] = tool
-    newArgs[3] = cf
-    newArgs[5] = hitData
+    for i, v in ipairs(newArgs) do
+        print("NewArg["..i.."] =", v, typeof(v))
+    end
 
     return newArgs
 end
@@ -208,6 +200,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 

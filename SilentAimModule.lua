@@ -131,71 +131,61 @@ end
 -- Хук FireServer
 local oldNamecall
 function SilentAimModule:Start()
-    if oldNamecall then return end
-    if not Shoot:IsA("RemoteEvent") then
-        warn("Shoot is not RemoteEvent")
-        return
-    end
+    if self.Running then return end
+    self.Running = true
+    SilentAimEnabled = true
 
+    -- ловим FireServer
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local args = {...}
+
         if self == Shoot and getnamecallmethod() == "FireServer" then
-            local args = {...}
+            -- дебаг вывод
+            print("FireServer called with args:")
             for i, v in ipairs(args) do
                 print("Arg["..i.."] =", v, typeof(v))
             end
-            print("FireServer called with args:", args)
-            print("Original args[2]:", args[2] and args[2].Name or "nil")
-            print("Original args[4]:", args[4])
-            print("SilentAimEnabled:", SilentAimEnabled)
+
             if SilentAimEnabled then
-                print("SilentAimEnabled is true")
-                if StickyTarget and CurrentTarget then
-                    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
-                    if not hum or hum.Health <= 0 or not IsVisible(CurrentTarget.Position) then
-                        print("StickyTarget invalidated, resetting CurrentTarget")
-                        CurrentTarget = nil
-                    end
-                end
+                -- если нет цели – ищем
                 if not CurrentTarget then
                     CurrentTarget = GetClosestTarget()
-                    print("Selected CurrentTarget:", CurrentTarget and CurrentTarget.Name or "nil")
                 end
+
+                -- если нашли цель
                 if CurrentTarget then
                     local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
                     print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
+
                     if hum then
                         local isBot = CurrentTarget.Parent.Parent == workspace:FindFirstChild("ServerBots")
                         local tool = getWeapon()
+
                         if not tool then
                             warn("No valid weapon found, using original args[2]")
                             return oldNamecall(self, unpack(args))
                         end
+
+                        -- строим новые аргументы
                         local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
+                        if newArgs then
+                            return oldNamecall(self, unpack(newArgs))
+                        else
+                            warn("buildShootArgs вернул nil, шлём стандартные аргументы")
+                            return oldNamecall(self, unpack(args))
+                        end
                     end
                 end
             end
-if CurrentTarget then
-    local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
-    print("Target Humanoid:", hum and hum.Parent.Name or "nil", "Bone:", SelectedBone)
-    if hum then
-        local isBot = CurrentTarget.Parent.Parent == workspace:FindFirstChild("ServerBots")
-        local tool = getWeapon()
-        if not tool then
-            warn("No valid weapon found, using original args[2]")
+
+            -- если цели нет – стреляем по стандарту
             return oldNamecall(self, unpack(args))
         end
-        local newArgs = buildShootArgs(args, tool, CurrentTarget.Parent, CurrentTarget.Position, SelectedBone, isBot)
-        return oldNamecall(self, unpack(newArgs))
-    end
-end
 
--- если нет CurrentTarget или что-то пошло не так — стреляем по дефолту
-return oldNamecall(self, unpack(args))
-        end
         return oldNamecall(self, ...)
     end)
 
-    print("[SilentAimModule] Hooked FireServer")
+    print("SilentAimModule started")
 end
 
 function SilentAimModule:Stop()
@@ -218,6 +208,7 @@ function SilentAimModule:SetConfig(config)
 end
 
 return SilentAimModule
+
 
 
 
